@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+.venv/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+bin/
+lib/
+.eggs/
+venv/
+env/
+.env
+
+# Config (may contain internal hostnames)
+config.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

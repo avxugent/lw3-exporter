@@ -1,0 +1,13 @@
+services:
+  lw3-exporter:
+    image: kristofkeppens/lw3-exporter:latest
+    container_name: lw3-exporter
+    restart: unless-stopped
+    ports:
+      - "9879:9879"
+    volumes:
+      # Optional: mount a custom config to override the built-in default.
+      # Remove or comment out this line to use the image's default config.
+      - ./config.yaml:/etc/lw3-exporter/config.yaml:ro
+    # Optional: override log level at runtime
+    # command: ["--log-level", "DEBUG"]

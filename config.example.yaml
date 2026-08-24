@@ -1,0 +1,69 @@
+# lw3-exporter example configuration
+# Copy this file to config.yaml and adjust to your environment.
+
+# ── HTTP server ───────────────────────────────────────────────────────────────
+
+# Address the HTTP server listens on.
+listen_host: "0.0.0.0"
+
+# Port the HTTP server listens on.
+listen_port: 9879
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+
+# Minimum log level: DEBUG | INFO | WARNING | ERROR | CRITICAL
+log_level: INFO
+
+# ── Devices ───────────────────────────────────────────────────────────────────
+
+# List of Lightware LW3-capable devices to monitor (matrix switchers,
+# HDBaseT/fibre extenders, distribution amplifiers, videowall processors —
+# any device with an LW3 management endpoint). This list is OPTIONAL. When
+# left empty (or omitted entirely) the exporter operates in URL-parameter
+# mode only: every probe request must supply the target device via query
+# parameters, e.g.:
+#
+#   GET /probe?host=192.168.1.10&name=matrix-101&username=admin&password=secret
+#
+# When devices ARE listed here they are probed on every plain GET /probe
+# request (config-file mode). URL-parameter mode is always available alongside
+# config-file mode regardless of whether devices are listed below.
+#
+# Supported query parameters (all except 'host' are optional):
+#   host          Hostname or IP address of the device        (required)
+#   name          Label used in Prometheus metrics             (default: value of host)
+#   port          LW3 WebSocket (HTTPS) port                   (default: 443)
+#   timeout       Request timeout in seconds                   (default: 10.0)
+#   username      LW3 login username, plaintext fallback       (default: none)
+#   password      LW3 login password, plaintext fallback       (default: none)
+#   verify_tls    "true"/"false" — verify the device's TLS
+#                 certificate                                  (default: false)
+#
+# The exporter talks LW3 over the device's WebSocket management endpoint
+# (wss://<host>:<port>/lw3), authenticated with the same username/password
+# used to log into the device's web UI — not the raw TCP LW3 port (6107)
+# from Lightware's manuals, which usually isn't reachable through campus
+# firewalls. `verify_tls` defaults to false because these devices typically
+# carry a self-signed certificate on their management interface.
+#
+# Credentials: OpenBao is tried first for every device, keyed by hostname
+# (see bao.py / README "Credentials" section). The 'username'/'password'
+# fields below (or the matching URL params) are only used when that lookup
+# returns nothing — fine for a lab/test device, but for anything else prefer
+# OpenBao so credentials aren't sitting in this file.
+#
+#   bao kv put secret/lw3/192.168.1.10 username=admin password=secret
+
+# devices:
+#   - name: matrix-room-101       # Unique label used in all Prometheus metrics
+#     host: 192.168.1.10          # Hostname or IP address of the device
+#     port: 443                   # LW3 WebSocket (HTTPS) port
+#     timeout: 10.0                # Request timeout in seconds
+#     username: ""                 # Plaintext fallback; prefer OpenBao instead
+#     password: ""                 # Plaintext fallback; prefer OpenBao instead
+#     verify_tls: false            # Set true once the device has a trusted cert
+
+#   - name: extender-lecture-hall
+#     host: 192.168.1.20
+#     port: 443
+#     timeout: 10.0
