@@ -79,7 +79,7 @@ class ProbeResult:
 
     product_name: Optional[str] = None
     serial_number: Optional[str] = None
-    firmware_version: Optional[str] = None
+    version: Optional[str] = None
     # sensor label (e.g. "MB_CPU") -> reading in Celsius. Populated by
     # walking /V1/MANAGEMENT/HEALTH at probe time -- see module docstring.
     temperatures: dict[str, float] = field(default_factory=dict)
@@ -233,7 +233,7 @@ def probe_device(
                 logger.debug("SerialNumber query failed for %s: %s", host, exc)
 
             try:
-                result.firmware_version = session.get_property(
+                result.version = session.get_property(
                     "/V1/MANAGEMENT/UID/PACKAGE.Version"
                 )
             except LookupError as exc:

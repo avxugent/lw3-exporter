@@ -98,8 +98,8 @@ class LW3Collector:
                 info["product_name"] = r.product_name
             if r.serial_number:
                 info["serial_number"] = r.serial_number
-            if r.firmware_version:
-                info["firmware_version"] = r.firmware_version
+            if r.version:
+                info["version"] = r.version
             if info:
                 device_family.add_metric([dev_cfg["name"], dev_cfg["host"]], info)
         yield device_family

@@ -126,7 +126,7 @@ Both modes are always available; a request with a `host` parameter always wins f
     walking `/V1/MANAGEMENT/HEALTH/*/TEMPERATURE` — the sensor set is device-specific (a small
     extender might report `MB_CPU`/`MB_AVX`, a matrix frame might report per-board sensors like
     `TX_CPU`/`RX_10G`). No configuration needed; whatever the device exposes shows up automatically.
--   `lw3_device_info` (info metric, labels: `product_name`, `serial_number`, `firmware_version`):
+-   `lw3_device_info` (info metric, labels: `product_name`, `serial_number`, `version`):
     Device identity reported over LW3 (`/.ProductName`, `/.SerialNumber`,
     `/MANAGEMENT/UID/PACKAGE.Version`). Registered as `lw3_device` in code — `InfoMetricFamily`
     appends the `_info` suffix in the exposition format.
