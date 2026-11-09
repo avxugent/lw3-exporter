@@ -40,7 +40,8 @@ pjlink's trimmed single-password version, since LW3 needs both.
 ## Commands
 
 ```bash
-# Install deps (PyYAML, prometheus-client, websockets, hvac)
+# Install deps (PyYAML, prometheus-client, websockets, hvac) — requirements.txt is fully pinned
+# (incl. transitive deps); Dependabot bumps it, see the header there for how to regenerate
 pip install -r requirements.txt
 
 # Run locally
