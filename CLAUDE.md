@@ -50,6 +50,9 @@ python -m lw3_exporter -c config.yaml
 # CLI flags override config file values
 python -m lw3_exporter -c config.yaml --host 0.0.0.0 --port 9879 --log-level DEBUG
 
+# With auth enabled, scrape with -u (or set LW3_AUTH_USERNAME / LW3_AUTH_PASSWORD)
+curl -u prometheus:secret 'localhost:9879/probe?host=...'
+
 # Docker
 docker build -t lw3-exporter .
 docker compose up -d
@@ -58,7 +61,7 @@ docker compose up -d
 There is **no test suite, linter, or type-checker configured** in this repo (no `pytest`, no
 `pyproject.toml`, no CI lint step — matching pjlink-exporter's setup). The only CI job
 (`.github/workflows/docker.yml`) builds and pushes a multiarch Docker image to Docker Hub on push
-to `main`. Verify changes manually by running the exporter and curling its endpoints — ideally
+to `master`. Verify changes manually by running the exporter and curling its endpoints — ideally
 against a real LW3 device (`GET /probe?host=...&username=...&password=...`). `prober.py`'s
 `probe_device()` needs a real or fake LW3-over-WebSocket server to exercise; there's no pure
 protocol-parsing entry point separate from the WebSocket I/O. A `websockets.sync.server` fixture
@@ -71,14 +74,15 @@ Four files under `lw3_exporter/`, each with a single responsibility:
 - **`prober.py`** — `probe_device()`: opens a `wss://<host>:<port>/lw3` WebSocket connection
   authenticated with HTTP Basic auth on the upgrade request (no separate login step, no `OPEN`
   before `GET`), queries `/.ProductName` (mandatory — this is what `success` gates on),
-  `/.SerialNumber`, `/MANAGEMENT/UID/PACKAGE.Version`, then walks `/V1/MANAGEMENT/HEALTH` to
+  `/.SerialNumber`, `/V1/MANAGEMENT/UID/PACKAGE.Version`, then walks `/V1/MANAGEMENT/HEALTH` to
   discover whatever temperature sensors the device actually has (`_discover_temperatures`), and
   returns a `ProbeResult`. Every query past `/.ProductName` is independently best-effort — a
   device lacking a property doesn't fail the whole probe. A fresh WebSocket connection is opened
   per probe rather than pooled, matching pjlink-exporter. `verify_tls` defaults to `False` since
   these devices typically ship a self-signed cert on the management interface.
 
-- **`collector.py`** — `LW3Collector(prometheus_client.registry.Collector)`: turns `ProbeResult`s
+- **`collector.py`** — `LW3Collector` (a plain duck-typed collector with `collect()`/`describe()`,
+  not a subclass of `prometheus_client.registry.Collector`): turns `ProbeResult`s
   into Prometheus metric families (`probe_success`, `probe_duration_seconds`,
   `lw3_temperature_celsius` — one row per discovered sensor, labeled `sensor` — and `lw3_device`
   info). `collect()` runs fresh on every scrape (no caching), probing every configured device
@@ -94,7 +98,9 @@ Four files under `lw3_exporter/`, each with a single responsibility:
   (`_resolve_credentials`: OpenBao first per device by hostname, falling back to the
   config file's/URL's `username`/`password` fields), the HTTP handler (`_make_handler` closes over
   the loaded `cfg` dict), and `main()`/CLI argument parsing. Routes: `/` (HTML index), `/probe`,
-  `/metrics`, `/healthz`.
+  `/metrics`, `/healthz`. Also owns HTTP auth and URL-mode target restriction (see "Securing the
+  HTTP surface"). The SIGTERM/SIGINT handler runs `httpd.shutdown()` in a separate thread — calling
+  it inline deadlocks, since the handler runs on the same thread as `serve_forever()`.
 
 ### The two probing modes (both always active, can combine)
 
@@ -107,6 +113,25 @@ Four files under `lw3_exporter/`, each with a single responsibility:
 
 If a request supplies `host` as a query param, URL-parameter mode wins for that request even if
 `devices:` is also configured — the two modes are per-request, not mutually exclusive globally.
+URL mode is the only path where the caller picks the target, so it is the one `allowed_hosts`
+restricts; config-file devices are never checked.
+
+### Securing the HTTP surface
+
+Both are implemented in `__main__.py` and both default to *off* (open + startup warning) so
+existing deployments don't break. TLS is not handled here — run behind a TLS-terminating proxy.
+
+- **Basic auth**: `auth.username`/`auth.password` in config, or `LW3_AUTH_USERNAME`/
+  `LW3_AUTH_PASSWORD` env vars (env wins). Guards `/`, `/probe`, `/metrics`; `/healthz` is always
+  open (Docker/Nomad liveness). Checked at the top of `Handler.do_GET` with `hmac.compare_digest`;
+  401 + `WWW-Authenticate` on failure. Setting only one of username/password fails at startup.
+- **Target allowlist**: `allowed_hosts` (regexes, `fullmatch`ed against the literal `host` string —
+  no DNS resolution, so keep patterns anchored) and `allowed_ports` (default `[443]`, only enforced
+  when `allowed_hosts` is set). Checked by `_target_allowed()` in `_handle_probe` *before*
+  `_resolve_credentials`, so a rejected host (403) never triggers an OpenBao lookup. This matters:
+  without it, any caller could point `host` at a server they control and receive the OpenBao
+  credentials stored for that hostname in the Basic auth header. Regexes are compiled in
+  `load_config`, so a bad pattern fails at startup.
 
 ### `/metrics` vs `/probe` — do not confuse these
 
@@ -137,7 +162,9 @@ OpenBao isn't set up) — `config.example.yaml` is the tracked template and also
 into the Docker image as the built-in default (`/etc/lw3-exporter/config.yaml`, overridable via
 the `LW3_CONFIG` env var or by bind-mounting over that path). The `devices:` list is optional at
 every level — an exporter with zero configured devices is valid and simply requires every
-`/probe` call to pass `host` (and credentials, one way or another).
+`/probe` call to pass `host` (and credentials, one way or another). Top-level `auth`,
+`allowed_hosts` and `allowed_ports` keys are documented in the example file and above; `auth` can
+also come from env vars so the password needn't live in the file.
 
 ## Protocol reference — read this before touching `prober.py`
 
