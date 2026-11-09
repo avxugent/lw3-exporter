@@ -57,7 +57,6 @@ import logging
 import ssl
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from websockets.exceptions import WebSocketException
 from websockets.sync.client import connect as ws_connect
@@ -74,12 +73,12 @@ class ProbeResult:
     """Result of probing a single LW3 device."""
 
     success: bool = False
-    error: Optional[str] = None
+    error: str | None = None
     duration_seconds: float = 0.0
 
-    product_name: Optional[str] = None
-    serial_number: Optional[str] = None
-    version: Optional[str] = None
+    product_name: str | None = None
+    serial_number: str | None = None
+    version: str | None = None
     # sensor label (e.g. "MB_CPU") -> reading in Celsius. Populated by
     # walking /V1/MANAGEMENT/HEALTH at probe time -- see module docstring.
     temperatures: dict[str, float] = field(default_factory=dict)
@@ -212,7 +211,7 @@ def probe_device(
         ssl_context.check_hostname = False
         ssl_context.verify_mode = ssl.CERT_NONE
 
-    auth = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+    auth = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
 
     try:
         with ws_connect(
