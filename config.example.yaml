@@ -37,10 +37,12 @@ listen_port: 9879
 # requests get 403. Empty/omitted = unrestricted (a warning is logged at startup).
 # Devices listed under `devices:` below are never checked.
 #
-# allowed_hosts:
-#   - '^matrix\d+\.private\.ugent\.be$'
-#   - '192\.168\.1\.10'
-#
+# Default: matrix<N> or vsw<N> hosts under .ugent.be or .private.ugent.be, e.g.
+# matrix0409001.private.ugent.be, vsw12.ugent.be. Add literal IPs/hosts as
+# extra entries, e.g. '192\.168\.1\.10'.
+allowed_hosts:
+  - '(matrix|vsw)\d+\.(private\.)?ugent\.be'
+
 # Ports URL mode may target (only enforced when allowed_hosts is set).
 # allowed_ports: [443]
 
