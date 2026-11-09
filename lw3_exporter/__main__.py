@@ -43,16 +43,37 @@ Endpoints
                     cert on their management interface).
 
 ``GET /healthz``
-    Liveness check; always returns ``200 OK``.
+    Liveness check; always returns ``200 OK``. Never requires auth.
+
+Target restrictions
+-------------------
+
+``allowed_hosts`` (list of regexes, ``fullmatch``ed against the literal ``host``
+string) and ``allowed_ports`` (default ``[443]``) restrict URL-parameter mode.
+Rejected targets get ``403`` before any OpenBao lookup or connection. Empty
+``allowed_hosts`` = unrestricted, with a startup warning. Config-file devices
+are never checked.
+
+Authentication
+--------------
+
+If ``auth.username`` and ``auth.password`` are set (config file, or the
+``LW3_AUTH_USERNAME`` / ``LW3_AUTH_PASSWORD`` env vars, which take precedence),
+every endpoint except ``/healthz`` requires HTTP Basic auth. Unset = open.
+The exporter speaks plain HTTP; run it behind a TLS-terminating proxy.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
+import hmac
 import logging
 import os
+import re
 import signal
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -96,6 +117,14 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "listen_host": "0.0.0.0",
     "listen_port": 9879,
     "log_level": "INFO",
+    # HTTP Basic auth for the exporter's own endpoints. Disabled unless both
+    # username and password are set (config file or LW3_AUTH_* env vars).
+    "auth": {"username": None, "password": None},
+    # URL-parameter mode target restrictions. Empty allowed_hosts = unrestricted
+    # (a warning is logged). When set, `host` must fullmatch one of the regexes
+    # and `port` must be in allowed_ports. Config-file devices are never checked.
+    "allowed_hosts": [],
+    "allowed_ports": [443],
     "devices": [],
 }
 
@@ -122,6 +151,26 @@ def load_config(path: str) -> dict[str, Any]:
         data = yaml.safe_load(fh) or {}
 
     cfg.update(data)
+
+    # Normalise the auth section; env vars override the config file so the
+    # password need not live in a file.
+    auth = dict(_DEFAULT_CONFIG["auth"])
+    auth.update(cfg.get("auth") or {})
+    auth["username"] = os.environ.get("LW3_AUTH_USERNAME") or auth["username"]
+    auth["password"] = os.environ.get("LW3_AUTH_PASSWORD") or auth["password"]
+    if bool(auth["username"]) != bool(auth["password"]):
+        raise ValueError("'auth' needs both 'username' and 'password' (or neither).")
+    cfg["auth"] = auth
+
+    # Compile allowed_hosts regexes up front so a bad pattern fails at startup.
+    compiled = []
+    for pattern in cfg["allowed_hosts"] or []:
+        try:
+            compiled.append(re.compile(str(pattern)))
+        except re.error as exc:
+            raise ValueError(f"Invalid allowed_hosts regex {pattern!r}: {exc}") from exc
+    cfg["allowed_hosts"] = compiled
+    cfg["allowed_ports"] = [int(p) for p in (cfg["allowed_ports"] or [])]
 
     for i, dev in enumerate(cfg["devices"]):
         if "name" not in dev:
@@ -150,6 +199,20 @@ def _device_from_query_params(query_params: dict[str, list[str]]) -> dict[str, A
         "password": query_params.get("password", [_DEVICE_DEFAULTS["password"]])[0],
         "verify_tls": query_params.get("verify_tls", ["false"])[0].strip().lower() == "true",
     }
+
+
+def _target_allowed(cfg: dict[str, Any], host: str, port: int) -> bool:
+    """
+    Check a URL-mode target against ``allowed_hosts``/``allowed_ports``.
+    Matches the literal host string given (no DNS resolution). Always True
+    when ``allowed_hosts`` is empty.
+    """
+    if not cfg["allowed_hosts"]:
+        return True
+    return (
+        any(p.fullmatch(host) for p in cfg["allowed_hosts"])
+        and port in cfg["allowed_ports"]
+    )
 
 
 def _resolve_credentials(devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -183,10 +246,34 @@ def _resolve_credentials(devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _make_handler(cfg: dict[str, Any]) -> type[BaseHTTPRequestHandler]:
     """Return a :class:`BaseHTTPRequestHandler` subclass closed over *cfg*."""
 
+    auth_user = cfg["auth"]["username"]
+    auth_pass = cfg["auth"]["password"]
+    expected_auth = (
+        b"Basic " + base64.b64encode(f"{auth_user}:{auth_pass}".encode("utf-8"))
+        if auth_user and auth_pass
+        else None
+    )
+
     class Handler(BaseHTTPRequestHandler):
+
+        def _authorized(self) -> bool:
+            """Constant-time check of the Basic auth header (always True if auth is off)."""
+            if expected_auth is None:
+                return True
+            supplied = self.headers.get("Authorization", "").encode("utf-8")
+            return hmac.compare_digest(supplied, expected_auth)
 
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+
+            # /healthz stays open for container/orchestrator liveness checks.
+            if parsed.path != "/healthz" and not self._authorized():
+                self.send_response(401)
+                self.send_header("WWW-Authenticate", 'Basic realm="lw3-exporter", charset="UTF-8"')
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Unauthorized")
+                return
 
             if parsed.path == "/":
                 self._handle_index()
@@ -288,6 +375,14 @@ def _make_handler(cfg: dict[str, Any]) -> type[BaseHTTPRequestHandler]:
                 except ValueError as exc:
                     _PROBE_REQUESTS_TOTAL.labels(result="error").inc()
                     self.send_error(400, f"Invalid query parameter: {exc}")
+                    return
+                if not _target_allowed(cfg, devices[0]["host"], devices[0]["port"]):
+                    _PROBE_REQUESTS_TOTAL.labels(result="error").inc()
+                    logger.warning(
+                        "Rejected URL-mode probe for %s:%d (not in allowed_hosts/allowed_ports)",
+                        devices[0]["host"], devices[0]["port"],
+                    )
+                    self.send_error(403, "Target host/port not allowed")
                     return
                 logger.debug(
                     "Probing device from URL parameters: %s (%s:%d)",
@@ -447,6 +542,22 @@ def main(argv: list[str] | None = None) -> None:
             cfg["listen_host"], cfg["listen_port"],
         )
 
+    if cfg["auth"]["username"]:
+        logger.info("HTTP Basic auth enabled (all endpoints except /healthz)")
+    else:
+        logger.warning("HTTP auth NOT configured — /probe and /metrics are open to anyone")
+
+    if cfg["allowed_hosts"]:
+        logger.info(
+            "URL-mode targets restricted: %d host pattern(s), ports %s",
+            len(cfg["allowed_hosts"]), cfg["allowed_ports"],
+        )
+    else:
+        logger.warning(
+            "allowed_hosts NOT configured — /probe?host=... can target any host "
+            "(and will send OpenBao credentials for it)"
+        )
+
     logger.info(
         "Listening on http://%s:%d  probe=>/probe  self-metrics=>/metrics",
         cfg["listen_host"], cfg["listen_port"],
@@ -461,7 +572,9 @@ def main(argv: list[str] | None = None) -> None:
     # --- Graceful shutdown ---
     def _handle_signal(signum: int, _frame: Any) -> None:
         logger.info("Received signal %d, shutting down…", signum)
-        httpd.shutdown()
+        # shutdown() blocks until serve_forever() returns; calling it directly
+        # here would deadlock since the handler runs on the serve_forever thread.
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
 
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)

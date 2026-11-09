@@ -97,6 +97,35 @@ template {
 }
 ```
 
+## Authentication (exporter's HTTP endpoints)
+
+Optional HTTP Basic auth protects `/`, `/probe` and `/metrics` (`/healthz` always stays open).
+Set `auth.username`/`auth.password` in `config.yaml`, or the `LW3_AUTH_USERNAME` /
+`LW3_AUTH_PASSWORD` env vars (these override the file). Unset = no auth, and a warning is logged
+at startup. The exporter serves plain HTTP, so run it behind a TLS-terminating proxy.
+
+```yaml
+scrape_configs:
+  - job_name: lw3
+    metrics_path: /probe
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/lw3.pass
+```
+
+## Restricting URL-parameter targets
+
+`/probe?host=...` lets the caller choose where the exporter connects, and OpenBao credentials for
+that hostname are sent along. Set `allowed_hosts` (regexes, fullmatched against the literal `host`)
+and optionally `allowed_ports` (default `[443]`) in `config.yaml` to restrict this; other targets
+get `403` before any credential lookup. Unset = unrestricted, with a startup warning. Devices under
+`devices:` are not checked.
+
+```yaml
+allowed_hosts:
+  - '^matrix\d+\.private\.ugent\.be$'
+```
+
 ## Metrics
 
 The exporter exposes device metrics on the `/probe` endpoint.

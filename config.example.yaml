@@ -9,6 +9,41 @@ listen_host: "0.0.0.0"
 # Port the HTTP server listens on.
 listen_port: 9879
 
+# ── HTTP authentication ───────────────────────────────────────────────────────
+
+# HTTP Basic auth protecting /, /probe and /metrics (/healthz stays open).
+# Disabled when omitted. Env vars LW3_AUTH_USERNAME / LW3_AUTH_PASSWORD override
+# these values — prefer them over a plaintext password in this file. The exporter
+# serves plain HTTP, so run it behind a TLS-terminating reverse proxy.
+#
+# Prometheus side:
+#   scrape_configs:
+#     - job_name: lw3
+#       metrics_path: /probe
+#       basic_auth:
+#         username: prometheus
+#         password_file: /etc/prometheus/lw3.pass
+#
+# auth:
+#   username: prometheus
+#   password: change-me
+
+# ── URL-mode target restrictions ──────────────────────────────────────────────
+
+# Restrict which targets GET /probe?host=... may contact. Without this, any
+# caller can make the exporter connect to an arbitrary host and send it the
+# OpenBao credentials stored for that hostname. Regexes are fullmatch()ed against
+# the literal host string (no DNS resolution — anchor them tightly). Rejected
+# requests get 403. Empty/omitted = unrestricted (a warning is logged at startup).
+# Devices listed under `devices:` below are never checked.
+#
+# allowed_hosts:
+#   - '^matrix\d+\.private\.ugent\.be$'
+#   - '192\.168\.1\.10'
+#
+# Ports URL mode may target (only enforced when allowed_hosts is set).
+# allowed_ports: [443]
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 # Minimum log level: DEBUG | INFO | WARNING | ERROR | CRITICAL

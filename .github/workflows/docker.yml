@@ -3,7 +3,7 @@ name: Build and push Docker image
 on:
   push:
     branches:
-      - main
+      - master
   schedule:
     # Rebuild weekly on Monday at 04:00 UTC to pick up base-image updates.
     - cron: "0 4 * * 1"
@@ -21,9 +21,9 @@ jobs:
         uses: actions/checkout@v4
 
       # Generates OCI-compliant image metadata (tags + labels) from the repo
-      # context. On a push to main this produces:
+      # context. On a push to master this produces:
       #   kristofkeppens/lw3-exporter:latest
-      #   kristofkeppens/lw3-exporter:main
+      #   kristofkeppens/lw3-exporter:master
       #   kristofkeppens/lw3-exporter:<short-sha>
       # On a scheduled run the same tags are applied based on the current HEAD.
       - name: Extract Docker metadata
