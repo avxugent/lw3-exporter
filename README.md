@@ -1,5 +1,8 @@
 # LW3 Exporter
 
+[![CI](https://github.com/avxugent/lw3-exporter/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/avxugent/lw3-exporter/actions/workflows/ci.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/avxugent/lw3-exporter/network/updates)
+
 A Prometheus exporter for Lightware LW3-capable devices, written in Python.
 
 [LW3](https://lightware.com/) is Lightware's own text-based, tree-structured property protocol,
