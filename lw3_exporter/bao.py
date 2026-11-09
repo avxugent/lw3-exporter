@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 import hvac
 
@@ -32,7 +31,7 @@ BAO_CACERT = os.environ.get("BAO_CACERT") or os.environ.get("VAULT_CACERT")
 BAO_NAMESPACE = os.environ.get("BAO_NAMESPACE") or os.environ.get("VAULT_NAMESPACE")
 
 
-def get_credentials(hostname: str) -> Optional[tuple[str, str]]:
+def get_credentials(hostname: str) -> tuple[str, str] | None:
     """Look up the LW3 (username, password) pair for a device hostname in OpenBao KV.
 
     Returns a (username, password) tuple, or None if the lookup fails for any

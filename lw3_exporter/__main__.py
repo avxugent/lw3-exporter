@@ -82,11 +82,11 @@ from urllib.parse import parse_qs, urlparse
 import yaml
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
+    REGISTRY,
     CollectorRegistry,
     Counter,
     Histogram,
     generate_latest,
-    REGISTRY,
 )
 
 from . import bao
@@ -147,7 +147,7 @@ def load_config(path: str) -> dict[str, Any]:
     """
     cfg = dict(_DEFAULT_CONFIG)
 
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
 
     cfg.update(data)
@@ -249,7 +249,7 @@ def _make_handler(cfg: dict[str, Any]) -> type[BaseHTTPRequestHandler]:
     auth_user = cfg["auth"]["username"]
     auth_pass = cfg["auth"]["password"]
     expected_auth = (
-        b"Basic " + base64.b64encode(f"{auth_user}:{auth_pass}".encode("utf-8"))
+        b"Basic " + base64.b64encode(f"{auth_user}:{auth_pass}".encode())
         if auth_user and auth_pass
         else None
     )

@@ -9,7 +9,8 @@ sensors as Prometheus metrics.
 from __future__ import annotations
 
 import logging
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
 from prometheus_client.core import GaugeMetricFamily, InfoMetricFamily, Metric
 
@@ -39,13 +40,13 @@ class LW3Collector:
     # prometheus_client collector interface
     # ------------------------------------------------------------------
 
-    def describe(self) -> Generator[Metric, None, None]:
+    def describe(self) -> Generator[Metric]:
         yield GaugeMetricFamily("probe_success", "")
         yield GaugeMetricFamily("probe_duration_seconds", "")
         yield GaugeMetricFamily("lw3_temperature_celsius", "")
         yield InfoMetricFamily("lw3_device", "")
 
-    def collect(self) -> Generator[Metric, None, None]:
+    def collect(self) -> Generator[Metric]:
         """Probe all devices and yield Prometheus metric families."""
         results: list[tuple[dict[str, Any], ProbeResult]] = [
             (dev_cfg, self._probe(dev_cfg)) for dev_cfg in self._devices

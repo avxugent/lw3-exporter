@@ -1,4 +1,22 @@
-prometheus-client>=0.20.0
-PyYAML>=6.0.1
-websockets>=13.0
-hvac
+# Fully pinned so image builds are reproducible; Dependabot (pip) bumps these.
+#
+# Direct dependencies (the only ones to change by hand):
+#   prometheus_client, PyYAML, websockets, hvac
+# Everything below them is transitive (hvac -> requests -> the rest) and pinned
+# so a rebuild can't silently pull in a different release.
+#
+# To regenerate: install the direct deps unpinned into a clean venv, then
+# `pip list --format=freeze`.
+
+# direct
+prometheus_client==0.26.0
+PyYAML==6.0.3
+websockets==17.4
+hvac==2.4.0
+
+# transitive
+certifi==2026.10.23
+charset-normalizer==3.5.2
+idna==3.20
+requests==2.34.2
+urllib3==2.8.0

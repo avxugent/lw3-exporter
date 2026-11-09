@@ -40,7 +40,8 @@ pjlink's trimmed single-password version, since LW3 needs both.
 ## Commands
 
 ```bash
-# Install deps (PyYAML, prometheus-client, websockets, hvac)
+# Install deps (PyYAML, prometheus-client, websockets, hvac) — requirements.txt is fully pinned
+# (incl. transitive deps); Dependabot bumps it, see the header there for how to regenerate
 pip install -r requirements.txt
 
 # Run locally
@@ -58,10 +59,13 @@ docker build -t lw3-exporter .
 docker compose up -d
 ```
 
-There is **no test suite, linter, or type-checker configured** in this repo (no `pytest`, no
-`pyproject.toml`, no CI lint step — matching pjlink-exporter's setup). The only CI job
-(`.github/workflows/docker.yml`) builds and pushes a multiarch Docker image to Docker Hub on push
-to `master`. Verify changes manually by running the exporter and curling its endpoints — ideally
+Tooling: **ruff** (`ruff.toml`; lint only, no formatter enforced — `pip install ruff && ruff check .`),
+`scripts/smoke-test.sh` (starts the exporter, checks auth, the host allowlist and clean SIGTERM
+shutdown; needs no device), and Dependabot (`.github/dependabot.yml`: pip, github-actions,
+docker). There is still **no pytest suite or type-checker**. CI (`.github/workflows/ci.yml`, on PRs
+and pushes to `master`) runs ruff, the smoke test, `pip-audit` and a no-push Docker build.
+`.github/workflows/docker.yml` builds and pushes the multiarch image to Docker Hub on push to
+`master`. Beyond the smoke test, verify changes manually by running the exporter and curling its endpoints — ideally
 against a real LW3 device (`GET /probe?host=...&username=...&password=...`). `prober.py`'s
 `probe_device()` needs a real or fake LW3-over-WebSocket server to exercise; there's no pure
 protocol-parsing entry point separate from the WebSocket I/O. A `websockets.sync.server` fixture

@@ -1,0 +1,18 @@
+target-version = "py314"  # matches the Dockerfile base image
+line-length = 100
+
+[lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # import sorting
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "S",       # bandit (security)
+    "SIM",     # simplifications
+    "C4",      # comprehensions
+]
+ignore = [
+    "E501",  # long lines: the HTML/CSS f-strings in the index page
+    "S104",  # binding 0.0.0.0 is intentional (container default)
+]
