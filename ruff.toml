@@ -1,4 +1,4 @@
-target-version = "py312"  # matches the Dockerfile base image
+target-version = "py314"  # matches the Dockerfile base image
 line-length = 100
 
 [lint]

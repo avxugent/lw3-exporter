@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ── Build / dependency stage ──────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 LABEL org.opencontainers.image.title="lw3-exporter" \
       org.opencontainers.image.description="Prometheus exporter for Lightware LW3-capable devices" \
