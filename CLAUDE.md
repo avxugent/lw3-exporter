@@ -63,7 +63,8 @@ Tooling: **ruff** (`ruff.toml`; lint only, no formatter enforced — `pip instal
 `scripts/smoke-test.sh` (starts the exporter, checks auth, the host allowlist and clean SIGTERM
 shutdown; needs no device), and Dependabot (`.github/dependabot.yml`: pip, github-actions,
 docker). There is still **no pytest suite or type-checker**. CI (`.github/workflows/ci.yml`, on PRs
-and pushes to `master`) runs ruff, the smoke test, `pip-audit` and a no-push Docker build.
+and pushes to `master`) runs ruff, the smoke test, `pip-audit` and a no-push Docker build whose image is scanned with Trivy
+(fails on fixable HIGH/CRITICAL). CodeQL runs via GitHub's default setup (repo settings, no workflow file).
 `.github/workflows/docker.yml` builds and pushes the multiarch image to GHCR (`ghcr.io/avxugent/lw3-exporter`, via `GITHUB_TOKEN`) on push to
 `master`. Beyond the smoke test, verify changes manually by running the exporter and curling its endpoints — ideally
 against a real LW3 device (`GET /probe?host=...&username=...&password=...`). `prober.py`'s
