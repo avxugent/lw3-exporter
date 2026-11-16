@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
 # Build and push the lw3-exporter Docker image (linux/amd64 + linux/arm64)
-# to Docker Hub as kristofkeppens/lw3-exporter.
+# to GitHub Container Registry as ghcr.io/avxugent/lw3-exporter.
 #
-# Requires: docker buildx, and `docker login` already done for an account
-# with push access to kristofkeppens/lw3-exporter.
+# Requires: docker buildx, and `docker login ghcr.io` already done (a PAT with
+# write:packages) for an account with push access to ghcr.io/avxugent/lw3-exporter.
 #
 # Usage:
 #   ./build-and-push.sh            # tags :latest and :<git-short-sha>
@@ -12,7 +12,7 @@
 
 set -euo pipefail
 
-IMAGE="kristofkeppens/lw3-exporter"
+IMAGE="ghcr.io/avxugent/lw3-exporter"
 PLATFORMS="linux/amd64,linux/arm64"
 BUILDER="lw3-exporter-builder"
 

@@ -64,7 +64,7 @@ Tooling: **ruff** (`ruff.toml`; lint only, no formatter enforced — `pip instal
 shutdown; needs no device), and Dependabot (`.github/dependabot.yml`: pip, github-actions,
 docker). There is still **no pytest suite or type-checker**. CI (`.github/workflows/ci.yml`, on PRs
 and pushes to `master`) runs ruff, the smoke test, `pip-audit` and a no-push Docker build.
-`.github/workflows/docker.yml` builds and pushes the multiarch image to Docker Hub on push to
+`.github/workflows/docker.yml` builds and pushes the multiarch image to GHCR (`ghcr.io/avxugent/lw3-exporter`, via `GITHUB_TOKEN`) on push to
 `master`. Beyond the smoke test, verify changes manually by running the exporter and curling its endpoints — ideally
 against a real LW3 device (`GET /probe?host=...&username=...&password=...`). `prober.py`'s
 `probe_device()` needs a real or fake LW3-over-WebSocket server to exercise; there's no pure

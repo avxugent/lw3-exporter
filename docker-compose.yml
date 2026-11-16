@@ -1,6 +1,6 @@
 services:
   lw3-exporter:
-    image: kristofkeppens/lw3-exporter:latest
+    image: ghcr.io/avxugent/lw3-exporter:latest
     container_name: lw3-exporter
     restart: unless-stopped
     ports:
