@@ -1,7 +1,13 @@
 # LW3 Exporter
 
 [![CI](https://github.com/avxugent/lw3-exporter/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/avxugent/lw3-exporter/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/avxugent/lw3-exporter/actions/workflows/github-code-scanning/codeql/badge.svg?branch=master)](https://github.com/avxugent/lw3-exporter/security/code-scanning)
+[![Docker image](https://github.com/avxugent/lw3-exporter/actions/workflows/docker.yml/badge.svg?branch=master)](https://github.com/avxugent/lw3-exporter/actions/workflows/docker.yml)
+[![GHCR](https://img.shields.io/badge/ghcr.io-avxugent%2Flw3--exporter-2496ed?logo=docker&logoColor=white)](https://github.com/avxugent/lw3-exporter/pkgs/container/lw3-exporter)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025e8c?logo=dependabot)](https://github.com/avxugent/lw3-exporter/network/updates)
+[![Trivy](https://img.shields.io/badge/image%20scan-trivy-1904da?logo=aqua&logoColor=white)](https://github.com/avxugent/lw3-exporter/actions/workflows/ci.yml)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/github/license/avxugent/lw3-exporter)](LICENSE)
 
 A Prometheus exporter for Lightware LW3-capable devices, written in Python.
 
