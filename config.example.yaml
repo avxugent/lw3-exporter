@@ -28,6 +28,18 @@ listen_port: 9879
 #   username: prometheus
 #   password: change-me
 
+# ── Client IP allowlist ───────────────────────────────────────────────────────
+
+# Only these source IPs/CIDRs may call /, /probe and /metrics (others get 403;
+# /healthz stays open). Use this to limit access to your Prometheus server
+# without Basic auth. Env var LW3_ALLOWED_CLIENTS (comma-separated) overrides.
+# Behind a reverse proxy the exporter sees the proxy's address, not the real
+# client's — enforce the ACL at the proxy in that case. Empty = any client.
+#
+# allowed_clients:
+#   - 10.1.2.3
+#   - 10.1.0.0/24
+
 # ── URL-mode target restrictions ──────────────────────────────────────────────
 
 # Restrict which targets GET /probe?host=... may contact. Without this, any

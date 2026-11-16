@@ -122,13 +122,18 @@ restricts; config-file devices are never checked.
 
 ### Securing the HTTP surface
 
-Both are implemented in `__main__.py` and both default to *off* (open + startup warning) so
+All are implemented in `__main__.py` and all default to *off* (open + startup warning) so
 existing deployments don't break. TLS is not handled here — run behind a TLS-terminating proxy.
 
 - **Basic auth**: `auth.username`/`auth.password` in config, or `LW3_AUTH_USERNAME`/
   `LW3_AUTH_PASSWORD` env vars (env wins). Guards `/`, `/probe`, `/metrics`; `/healthz` is always
   open (Docker/Nomad liveness). Checked at the top of `Handler.do_GET` with `hmac.compare_digest`;
   401 + `WWW-Authenticate` on failure. Setting only one of username/password fails at startup.
+- **Client IP allowlist**: `allowed_clients` (IPs/CIDRs, parsed in `load_config` into `ip_network`
+  objects; `LW3_ALLOWED_CLIENTS` comma-separated env wins). Checked by `_client_allowed()` at the
+  very top of `Handler.do_GET` against `self.client_address[0]` (IPv4-mapped IPv6 normalised), before
+  auth; 403 on failure. `/healthz` is exempt. Behind a proxy the peer is the proxy, so use the
+  proxy's ACL instead — `X-Forwarded-For` is deliberately not trusted.
 - **Target allowlist**: `allowed_hosts` (regexes, `fullmatch`ed against the literal `host` string —
   no DNS resolution, so keep patterns anchored) and `allowed_ports` (default `[443]`, only enforced
   when `allowed_hosts` is set). Checked by `_target_allowed()` in `_handle_probe` *before*

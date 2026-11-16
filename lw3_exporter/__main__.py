@@ -54,6 +54,15 @@ Rejected targets get ``403`` before any OpenBao lookup or connection. Empty
 ``allowed_hosts`` = unrestricted, with a startup warning. Config-file devices
 are never checked.
 
+Client IP allowlist
+-------------------
+
+``allowed_clients`` (list of IPs / CIDRs, or the comma-separated
+``LW3_ALLOWED_CLIENTS`` env var, which takes precedence) restricts which source
+addresses may call ``/``, ``/probe`` and ``/metrics``; others get ``403``.
+``/healthz`` stays open. Empty = unrestricted. Behind a reverse proxy the
+source address is the proxy's, so enforce the ACL at the proxy instead.
+
 Authentication
 --------------
 
@@ -68,6 +77,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hmac
+import ipaddress
 import logging
 import os
 import re
@@ -125,6 +135,9 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     # and `port` must be in allowed_ports. Config-file devices are never checked.
     "allowed_hosts": [],
     "allowed_ports": [443],
+    # Source-IP allowlist (IPs/CIDRs) for the exporter's own endpoints, e.g. the
+    # Prometheus server. Empty = any client. Env LW3_ALLOWED_CLIENTS overrides.
+    "allowed_clients": [],
     "devices": [],
 }
 
@@ -172,6 +185,20 @@ def load_config(path: str) -> dict[str, Any]:
     cfg["allowed_hosts"] = compiled
     cfg["allowed_ports"] = [int(p) for p in (cfg["allowed_ports"] or [])]
 
+    # Parse allowed_clients up front (env var wins, comma-separated).
+    raw_clients = os.environ.get("LW3_ALLOWED_CLIENTS")
+    if raw_clients:
+        raw_clients = [c.strip() for c in raw_clients.split(",") if c.strip()]
+    else:
+        raw_clients = cfg["allowed_clients"] or []
+    networks = []
+    for entry in raw_clients:
+        try:
+            networks.append(ipaddress.ip_network(str(entry), strict=False))
+        except ValueError as exc:
+            raise ValueError(f"Invalid allowed_clients entry {entry!r}: {exc}") from exc
+    cfg["allowed_clients"] = networks
+
     for i, dev in enumerate(cfg["devices"]):
         if "name" not in dev:
             raise ValueError(f"Device #{i} is missing the required 'name' field.")
@@ -213,6 +240,23 @@ def _target_allowed(cfg: dict[str, Any], host: str, port: int) -> bool:
         any(p.fullmatch(host) for p in cfg["allowed_hosts"])
         and port in cfg["allowed_ports"]
     )
+
+
+def _client_allowed(cfg: dict[str, Any], client_ip: str) -> bool:
+    """
+    Check the connecting client's address against ``allowed_clients``.
+    Always True when the list is empty; unparseable addresses are rejected.
+    """
+    if not cfg["allowed_clients"]:
+        return True
+    try:
+        addr = ipaddress.ip_address(client_ip.split("%", 1)[0])
+    except ValueError:
+        return False
+    # Dual-stack sockets report IPv4 clients as ::ffff:a.b.c.d.
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+        addr = addr.ipv4_mapped
+    return any(addr.version == net.version and addr in net for net in cfg["allowed_clients"])
 
 
 def _resolve_credentials(devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -267,6 +311,11 @@ def _make_handler(cfg: dict[str, Any]) -> type[BaseHTTPRequestHandler]:
             parsed = urlparse(self.path)
 
             # /healthz stays open for container/orchestrator liveness checks.
+            if parsed.path != "/healthz" and not _client_allowed(cfg, self.client_address[0]):
+                logger.warning("Rejected request from %s (not in allowed_clients)", self.client_address[0])
+                self.send_error(403, "Client not allowed")
+                return
+
             if parsed.path != "/healthz" and not self._authorized():
                 self.send_response(401)
                 self.send_header("WWW-Authenticate", 'Basic realm="lw3-exporter", charset="UTF-8"')
@@ -546,6 +595,14 @@ def main(argv: list[str] | None = None) -> None:
         logger.info("HTTP Basic auth enabled (all endpoints except /healthz)")
     else:
         logger.warning("HTTP auth NOT configured — /probe and /metrics are open to anyone")
+
+    if cfg["allowed_clients"]:
+        logger.info(
+            "Client IP allowlist enabled: %s (all endpoints except /healthz)",
+            ", ".join(str(n) for n in cfg["allowed_clients"]),
+        )
+    else:
+        logger.warning("allowed_clients NOT configured — any client IP may reach the endpoints")
 
     if cfg["allowed_hosts"]:
         logger.info(

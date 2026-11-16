@@ -45,6 +45,20 @@ check "probe host outside allowlist"   403 -u prom:s3cret "$BASE/probe?host=evil
 check "probe lookalike host"           403 -u prom:s3cret "$BASE/probe?host=matrix1.ugent.be.evil.com"
 check "probe port outside allowlist"   403 -u prom:s3cret "$BASE/probe?host=matrix1.ugent.be&port=22"
 
+# Client IP allowlist: a second instance that only permits a foreign address.
+PORT2=$((PORT + 1))
+LW3_ALLOWED_CLIENTS=203.0.113.0/24 \
+    "$PYTHON" -m lw3_exporter -c config.example.yaml --host 127.0.0.1 --port "$PORT2" \
+    >/tmp/lw3-smoke2.log 2>&1 &
+pid2=$!
+for _ in $(seq 1 30); do
+    curl -s -m 1 -o /dev/null "http://127.0.0.1:${PORT2}/healthz" && break
+    sleep 0.5
+done
+check "client outside allowed_clients" 403 "http://127.0.0.1:${PORT2}/metrics"
+check "healthz open to any client"     200 "http://127.0.0.1:${PORT2}/healthz"
+kill -TERM "$pid2"; wait "$pid2" 2>/dev/null
+
 # SIGTERM must stop the server promptly (regression: shutdown() deadlock).
 kill -TERM "$pid"
 for _ in $(seq 1 10); do

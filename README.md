@@ -116,6 +116,20 @@ scrape_configs:
       password_file: /etc/prometheus/lw3.pass
 ```
 
+## Restricting clients by IP
+
+As an alternative (or addition) to Basic auth, `allowed_clients` limits which source addresses may
+call `/`, `/probe` and `/metrics` (others get `403`; `/healthz` stays open). Entries are IPs or
+CIDRs; the `LW3_ALLOWED_CLIENTS` env var (comma-separated) overrides the file. Unset = any client,
+with a startup warning. Behind a reverse proxy the exporter only sees the proxy's address, so
+enforce the ACL at the proxy there.
+
+```yaml
+allowed_clients:
+  - 10.1.2.3          # Prometheus server
+  - 10.1.0.0/24
+```
+
 ## Restricting URL-parameter targets
 
 `/probe?host=...` lets the caller choose where the exporter connects, and OpenBao credentials for
